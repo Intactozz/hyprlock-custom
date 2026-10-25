@@ -10,12 +10,18 @@
 #include "../config/ConfigDataValues.hpp"
 #include "widgets/IWidget.hpp"
 #include "Framebuffer.hpp"
+#include "widgets/ShakeAnimation.hpp"
 
 typedef std::unordered_map<OUTPUTID, std::vector<ASP<IWidget>>> widgetMap_t;
 
 class CRenderer {
   public:
     CRenderer();
+
+    void triggerLoginShake();
+    double getLoginShakeOffset();
+    bool isLoginShakeActive() const;
+
 
     struct SRenderFeedback {
         bool needsFrame = false;
@@ -44,11 +50,12 @@ class CRenderer {
     void                                  removeWidgetsFor(OUTPUTID id);
     void                                  reconfigureWidgetsFor(OUTPUTID id);
 
-    void                                  startFadeIn();
-    void                                  startFadeOut(bool unlock = false);
-    void                                  warpOpacity(float warpOpacity);
-    std::vector<ASP<IWidget>>&            getOrCreateWidgetsFor(const CSessionLockSurface& surf);
-
+        void                                  startFadeIn();
+        void                                  startFadeOut(bool unlock = false);
+        void                                  warpOpacity(float warpOpacity);
+        std::vector<ASP<IWidget>>&            getOrCreateWidgetsFor(const CSessionLockSurface& surf);
+        void                                  startBackgroundBlur();
+    
   private:
     widgetMap_t        widgets;
 
@@ -60,6 +67,7 @@ class CRenderer {
     CShader            blurPrepareShader;
     CShader            blurFinishShader;
     CShader            borderShader;
+    CShakeAnimation m_loginShake;
 
     Mat3x3             projMatrix = Mat3x3::identity();
     Mat3x3             projection;

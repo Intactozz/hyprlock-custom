@@ -3,6 +3,7 @@
 #include "../core/hyprlock.hpp"
 #include "../helpers/Log.hpp"
 #include "../helpers/MiscFunctions.hpp"
+#include <chrono>
 
 #include <filesystem>
 #include <unistd.h>
@@ -136,7 +137,15 @@ bool CPam::auth() {
         return false;
     }
 
-    ret = pam_authenticate(handle, 0);
+    const auto authStart = std::chrono::steady_clock::now();
+
+ret = pam_authenticate(handle, 0);
+
+const auto authElapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+    std::chrono::steady_clock::now() - authStart
+).count();
+
+Log::logger->log(Log::INFO, "PAM authentication took {} ms", authElapsed);
     pam_end(handle, ret);
     handle = nullptr;
 

@@ -14,6 +14,7 @@
 
 CBackground::CBackground() {
     blurredFB        = makeUnique<CFramebuffer>();
+    sharpFB          = makeUnique<CFramebuffer>();
     pendingBlurredFB = makeUnique<CFramebuffer>();
     transformedScFB  = makeUnique<CFramebuffer>();
 }
@@ -70,7 +71,7 @@ void CBackground::configure(const std::unordered_map<std::string, std::any>& pro
     scResourceID = CAsyncResourceManager::resourceIDForScreencopy(pOutput->stringPort);
 
     g_pAnimationManager->createAnimation(0.f, crossFadeProgress, g_pConfigManager->m_AnimationTree.getConfig("fadeIn"));
-
+    g_pAnimationManager->createAnimation(0.f, backgroundBlurProgress, g_pConfigManager->m_AnimationTree.getConfig("backgroundBlur"));
     if (!g_asyncResourceManager->checkIdPresent(scResourceID)) {
         Log::logger->log(Log::INFO, "Missing screenshot for output {}", outputPort);
         scResourceID = 0;
@@ -106,6 +107,7 @@ void CBackground::reset() {
     }
 
     blurredFB->destroyBuffer();
+    sharpFB->destroyBuffer();
     pendingBlurredFB->destroyBuffer();
 }
 
@@ -118,8 +120,11 @@ void CBackground::updatePrimaryAsset() {
         return;
 
     const bool NEEDFB = (isScreenshot || blurPasses > 0 || asset->m_vSize != viewport || transform != HYPRUTILS_TRANSFORM_NORMAL) && (!blurredFB->isAllocated() || firstRender);
-    if (NEEDFB)
+
+    if (NEEDFB) {
+        renderToFB(*asset, *sharpFB, 0, isScreenshot);
         renderToFB(*asset, *blurredFB, blurPasses, isScreenshot);
+    }
 }
 
 void CBackground::updatePendingAsset() {
@@ -210,7 +215,7 @@ void CBackground::renderToFB(const CTexture& tex, CFramebuffer& fb, int passes, 
 
     g_pRenderer->renderTexture(TEXBOX, tex, 1.0, 0, applyTransform ? transform : HYPRUTILS_TRANSFORM_NORMAL);
 
-    if (blurPasses > 0)
+    if (passes > 0)
         g_pRenderer->blurFB(fb,
                             CRenderer::SBlurParams{
                                 .size              = blurSize,
@@ -252,18 +257,44 @@ bool CBackground::draw(const SRenderData& data) {
         return !asset && resourceID > 0; // resource not ready
     }
 
-    const auto& TEX    = getPrimaryAssetTex();
-    const auto  TEXBOX = getScaledBoxForTextureSize(TEX.m_vSize, viewport);
+            const auto& TEX = (sharpFB->isAllocated() && backgroundBlurProgress->value() < 1.0f)
+        ? sharpFB->m_cTex
+        : getPrimaryAssetTex();
+
+    const auto TEXBOX = getScaledBoxForTextureSize(TEX.m_vSize, viewport);
+
     if (data.opacity < 1.0 && scAsset) {
         const auto& SCTEX = getScAssetTex();
         g_pRenderer->renderTextureMix(TEXBOX, SCTEX, TEX, 1.0, data.opacity, 0);
     } else if (crossFadeProgress->isBeingAnimated()) {
         const auto& PENDINGTEX = getPendingAssetTex();
         g_pRenderer->renderTextureMix(TEXBOX, TEX, PENDINGTEX, 1.0, crossFadeProgress->value(), 0);
-    } else
+    } else if (sharpFB->isAllocated() && blurredFB->isAllocated()) {
+        g_pRenderer->renderTextureMix(
+            TEXBOX,
+            sharpFB->m_cTex,
+            blurredFB->m_cTex,
+            1.0,
+            backgroundBlurProgress->value(),
+            0
+        );
+    } else {
         g_pRenderer->renderTexture(TEXBOX, TEX, 1, 0);
+    }
 
-    return crossFadeProgress->isBeingAnimated() || data.opacity < 1.0;
+    return crossFadeProgress->isBeingAnimated() ||
+           backgroundBlurProgress->isBeingAnimated() ||
+           data.opacity < 1.0;
+}
+
+void CBackground::startBlurAnimation() {
+    if (!backgroundBlurProgress)
+        return;
+
+    if (backgroundBlurProgress->value() >= 1.0f)
+        return;
+
+    *backgroundBlurProgress = 1.0f;
 }
 
 void CBackground::onAssetUpdate(ResourceID id, ASP<CTexture> newAsset) {
@@ -289,6 +320,12 @@ void CBackground::onAssetUpdate(ResourceID id, ASP<CTexture> newAsset) {
 
                     PSELF->blurredFB->destroyBuffer();
                     PSELF->blurredFB = std::move(PSELF->pendingBlurredFB);
+
+                    // A textura nítida anterior não corresponde mais ao wallpaper atual.
+                    PSELF->sharpFB->destroyBuffer();
+
+                    // Força a reconstrução dos framebuffers na próxima renderização.
+                    PSELF->firstRender = true;
 
                     PSELF->pendingResource = false;
                 }

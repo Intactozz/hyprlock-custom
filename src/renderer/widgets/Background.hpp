@@ -42,14 +42,17 @@ class CBackground : public IWidget {
     void            onReloadTimerUpdate();
     void            plantReloadTimer();
     void            startCrossFade();
+    void            startBlurAnimation();
 
   private:
     AWP<CBackground> m_self;
 
     // if needed
     UP<CFramebuffer>                blurredFB;
+    UP<CFramebuffer>                sharpFB;
     UP<CFramebuffer>                pendingBlurredFB;
     UP<CFramebuffer>                transformedScFB;
+    
 
     int                             blurSize          = 10;
     int                             blurPasses        = 3;
@@ -69,6 +72,7 @@ class CBackground : public IWidget {
     bool                            pendingResource = false;
 
     PHLANIMVAR<float>               crossFadeProgress;
+    PHLANIMVAR<float>               backgroundBlurProgress;
 
     CHyprColor                      color;
     ASP<CTexture>                   asset        = nullptr;

@@ -694,8 +694,14 @@ void CHyprlock::handleKeySym(xkb_keysym_t sym, bool composed) {
         int  len     = (composed) ? xkb_compose_state_get_utf8(g_pSeatManager->m_pXKBComposeState, buf, sizeof(buf)) /* nullbyte */ + 1 :
                                     xkb_keysym_to_utf8(SYM, buf, sizeof(buf)) /* already includes a nullbyte */;
 
-        if (len > 1)
+               if (len > 1) {
+            const bool firstCharacter = m_sPasswordState.passBuffer.empty();
+
             m_sPasswordState.passBuffer += std::string{buf, len - 1};
+
+            if (firstCharacter)
+                g_pRenderer->startBackgroundBlur();
+        }
     }
 }
 

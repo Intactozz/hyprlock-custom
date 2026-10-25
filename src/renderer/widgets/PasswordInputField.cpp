@@ -14,6 +14,7 @@
 #include <hyprutils/string/String.hpp>
 #include <algorithm>
 #include <hyprlang.hpp>
+#include <chrono>
 
 using namespace Hyprutils::String;
 
@@ -183,8 +184,15 @@ bool CPasswordInputField::draw(const SRenderData& data) {
     bool forceReload = false;
 
     passwordLength = g_pHyprlock->getPasswordBufferDisplayLen();
-    checkWaiting   = g_pAuth->checkWaiting();
-    displayFail    = g_pAuth->m_bDisplayFailText;
+checkWaiting   = g_pAuth->checkWaiting();
+displayFail    = g_pAuth->m_bDisplayFailText;
+
+const size_t failedAttempts = g_pAuth->getFailedAttempts();
+
+if (failedAttempts > m_lastShakeFailedAttempts)
+    g_pRenderer->triggerLoginShake();
+
+m_lastShakeFailedAttempts = failedAttempts;
 
     updateFade();
     updateDots();
@@ -193,9 +201,12 @@ bool CPasswordInputField::draw(const SRenderData& data) {
     updateWidth();
     updateHiddenInputState();
 
-    CBox        inputFieldBox = {pos, size->value()};
-    CBox        outerBox      = {pos - Vector2D{outThick, outThick}, size->value() + Vector2D{outThick * 2, outThick * 2}};
+    const Vector2D shakeOffset{g_pRenderer->getLoginShakeOffset(), 0.0};
 
+    CBox inputFieldBox = {pos + shakeOffset, size->value()};
+    CBox outerBox      = {pos + shakeOffset - Vector2D{outThick, outThick},
+                      size->value() + Vector2D{outThick * 2, outThick * 2}};
+    
     SRenderData shadowData = data;
     shadowData.opacity *= fade.a->value();
 
@@ -300,6 +311,20 @@ bool CPasswordInputField::draw(const SRenderData& data) {
         }
     }
 
+double verificationOpacity = 1.0;
+
+if (checkWaiting && !configCheckText.empty()) {
+    const auto now = std::chrono::steady_clock::now();
+    const double seconds =
+        std::chrono::duration<double>(now.time_since_epoch()).count();
+
+    constexpr double PI = 3.14159265358979323846;
+    constexpr double PERIOD = 1.2;
+
+    verificationOpacity =
+        0.725 + 0.275 * std::cos(2.0 * PI * seconds / PERIOD);
+}
+
     bool placeholderPasswordCondition = (passwordLength == 0 && placeholder.resourceID > 0);
 
     if (placeholderPasswordCondition && (!checkWaiting || (checkWaiting && !configCheckText.empty()))) {
@@ -317,14 +342,19 @@ bool CPasswordInputField::draw(const SRenderData& data) {
             // Cut the texture to the width of the input field
             glEnable(GL_SCISSOR_TEST);
             glScissor(inputFieldBox.x, inputFieldBox.y, inputFieldBox.w, inputFieldBox.h);
-            g_pRenderer->renderTexture(ASSETBOX, *currAsset, data.opacity * fade.a->value(), 0);
+            g_pRenderer->renderTexture(
+    ASSETBOX,
+    *currAsset,
+    data.opacity * fade.a->value() * verificationOpacity,
+    0
+);
             glScissor(0, 0, viewport.x, viewport.y);
             glDisable(GL_SCISSOR_TEST);
         } else
             forceReload = true;
     }
 
-    return redrawShadow || forceReload;
+    return redrawShadow || forceReload || g_pRenderer->isLoginShakeActive();
 }
 
 void CPasswordInputField::updatePlaceholder() {

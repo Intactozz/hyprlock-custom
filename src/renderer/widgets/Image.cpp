@@ -198,6 +198,7 @@ bool CImage::draw(const SRenderData& data) {
     shadow.draw(data);
 
     pos = posFromHVAlign(viewport, tex->m_vSize, configPos, halign, valign, angle);
+    pos.x += g_pRenderer->getLoginShakeOffset();
 
     texbox.x = pos.x;
     texbox.y = pos.y;
@@ -206,7 +207,7 @@ bool CImage::draw(const SRenderData& data) {
     texbox.rot = angle;
     g_pRenderer->renderTexture(texbox, *tex, data.opacity, 0, HYPRUTILS_TRANSFORM_FLIPPED_180);
 
-    return data.opacity < 1.0;
+    return data.opacity < 1.0 || g_pRenderer->isLoginShakeActive();
 }
 
 void CImage::onAssetUpdate(ResourceID id, ASP<CTexture> newAsset) {

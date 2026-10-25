@@ -425,6 +425,15 @@ std::vector<ASP<IWidget>>& CRenderer::getOrCreateWidgetsFor(const CSessionLockSu
     return widgets[surf.m_outputID];
 }
 
+void CRenderer::startBackgroundBlur() {
+    for (auto& [outputID, outputWidgets] : widgets) {
+        for (const auto& widget : outputWidgets) {
+            if (auto* background = dynamic_cast<CBackground*>(widget.get()))
+                background->startBlurAnimation();
+        }
+    }
+}
+
 void CRenderer::blurFB(const CFramebuffer& outfb, SBlurParams params) {
     glDisable(GL_BLEND);
     glDisable(GL_STENCIL_TEST);
@@ -615,4 +624,16 @@ void CRenderer::startFadeOut(bool unlock) {
 
 void CRenderer::warpOpacity(float newOpacity) {
     opacity->setValueAndWarp(newOpacity);
+}
+
+void CRenderer::triggerLoginShake() {
+    m_loginShake.trigger();
+}
+
+double CRenderer::getLoginShakeOffset() {
+    return m_loginShake.offset();
+}
+
+bool CRenderer::isLoginShakeActive() const {
+    return m_loginShake.isActive();
 }

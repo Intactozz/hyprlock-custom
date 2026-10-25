@@ -49,6 +49,7 @@ class CPasswordInputField : public IWidget {
     bool                     displayFail  = false;
 
     size_t                   passwordLength = 0;
+    size_t m_lastShakeFailedAttempts = 0;
 
     PHLANIMVAR<Vector2D>     size;
     Vector2D                 pos;
