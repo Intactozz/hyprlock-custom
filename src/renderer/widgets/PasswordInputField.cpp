@@ -354,7 +354,9 @@ if (checkWaiting && !configCheckText.empty()) {
             forceReload = true;
     }
 
-    return redrawShadow || forceReload || g_pRenderer->isLoginShakeActive();
+    return redrawShadow || forceReload ||
+       g_pRenderer->isLoginShakeActive() ||
+       (checkWaiting && !configCheckText.empty());
 }
 
 void CPasswordInputField::updatePlaceholder() {
