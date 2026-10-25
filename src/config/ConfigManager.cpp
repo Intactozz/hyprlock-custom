@@ -367,6 +367,7 @@ void CConfigManager::init() {
     // toplevel
     m_AnimationTree.createNode("fade", "global");
     m_AnimationTree.createNode("inputField", "global");
+    m_AnimationTree.createNode("backgroundBlur", "global");
 
     // inputField
     m_AnimationTree.createNode("inputFieldColors", "inputField");
@@ -380,8 +381,9 @@ void CConfigManager::init() {
 
     // set config for root node
     m_AnimationTree.setConfigForNode("global", 1, 8.f, "default");
-    m_AnimationTree.setConfigForNode("inputFieldColors", 1, 8.f, "linear");
-
+m_AnimationTree.setConfigForNode("inputFieldColors", 1, 8.f, "linear");
+m_AnimationTree.setConfigForNode("backgroundBlur", 1, 3.f, "linear");
+    
     m_config.commence();
 
     auto result = m_config.parse();
